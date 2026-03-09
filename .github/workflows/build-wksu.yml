@@ -346,18 +346,11 @@ jobs:
         STOCK_BUILD_HOST=$(jq -r ".devices.${DEVICE_CODENAME}.stock_kernel.build_host" "$PROFILE_FILE")
         STOCK_COMPILER=$(jq -r ".devices.${DEVICE_CODENAME}.stock_kernel.compiler_info // empty" "$PROFILE_FILE")
 
-        # 5.x/6.1 Makefile prepends KERNELVERSION; 6.6+ does not
-        if grep -q 'filechk_kernel.release.*KERNELVERSION' Makefile 2>/dev/null; then
-          RELEASE_OUTPUT="$STOCK_RELEASE"
-        else
-          RELEASE_OUTPUT="${KERNEL_VER}.${SUBLEVEL}${STOCK_RELEASE}"
-        fi
-
         cat > scripts/setlocalversion << 'SETLOCAL_EOF'
         #!/bin/sh
-        printf '%s' "RELEASE_OUTPUT_PLACEHOLDER"
+        printf '%s' "STOCK_RELEASE_PLACEHOLDER"
         SETLOCAL_EOF
-        sed -i "s|RELEASE_OUTPUT_PLACEHOLDER|${RELEASE_OUTPUT}|g" scripts/setlocalversion
+        sed -i "s|STOCK_RELEASE_PLACEHOLDER|${STOCK_RELEASE}|g" scripts/setlocalversion
         chmod +x scripts/setlocalversion
 
         if [ -f "scripts/mkcompile_h" ]; then
