@@ -10,12 +10,7 @@
     "manifest_repo": "WildKernels/OnePlus_KernelSU_SUSFS",
     "manifest_branch": "zeromount",
     "hmbird": true,
-    "extra_artifacts": [
-      "dtbo.img",
-      "system_dlkm.img",
-      "vendor_dlkm.img",
-      "vendor_boot.img"
-    ],
+    "extra_artifacts": [],
     "manifest_file": "manifests/oos16/oneplus_15_w.xml"
   },
   "oneplus_13_b": {
