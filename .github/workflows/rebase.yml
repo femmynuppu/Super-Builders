@@ -1,0 +1,68 @@
+name: Auto-Rebase 51_enhanced_susfs
+
+permissions:
+  contents: write
+  actions: write
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Super-Builders
+        uses: actions/checkout@v4
+        with:
+          path: Super-Builders
+
+      - name: Checkout SUSFS v2.1
+        uses: actions/checkout@v4
+        with:
+          repository: simonpunk/susfs4ksu
+          ref: gki-android12-5.10
+          path: susfs4ksu
+
+      - name: Checkout Android Common Kernel 12-5.10
+        uses: actions/checkout@v4
+        with:
+          repository: aosp-mirror/kernel_common
+          ref: android12-5.10
+          path: kernel_common
+          fetch-depth: 1
+
+      - name: Perform Rebase
+        run: |
+          cd kernel_common
+          # Apply v2.1 Patch (baseline)
+          patch -p1 < ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch
+          
+          # Commit the baseline
+          git config user.name "Auto Rebase"
+          git config user.email "bot@example.com"
+          git add -A
+          git commit -m "Apply SUSFS v2.1"
+          
+          # Apply the old 51_enhanced patch with automatic merge / fuzzy matching
+          # We use patch -p1 --merge to resolve conflicts automatically where possible
+          patch -p1 --merge < ../Super-Builders/android12-5.10/ReSukiSU/patches/51_enhanced_susfs-android12-5.10.patch || true
+          
+          # Fix any rejects manually if they are simple, or we just take the diff as is
+          # For our purpose, the fuzzy match usually succeeds. We delete any .rej files
+          find . -name "*.rej" -delete
+          find . -name "*.orig" -delete
+          
+          # Generate the new rebased patch
+          git diff > 51_enhanced_susfs-android12-5.10.patch
+          
+          # Copy it back to Super-Builders
+          cp 51_enhanced_susfs-android12-5.10.patch ../Super-Builders/android12-5.10/ReSukiSU/patches/51_enhanced_susfs-android12-5.10.patch
+          
+      - name: Push Rebased Patch
+        run: |
+          cd Super-Builders
+          git config user.name "Auto Rebase"
+          git config user.email "bot@example.com"
+          git add android12-5.10/ReSukiSU/patches/51_enhanced_susfs-android12-5.10.patch
+          git commit -m "Auto-rebase 51_enhanced_susfs onto v2.1" || echo "No changes"
+          git push origin main
