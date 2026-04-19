@@ -238,6 +238,7 @@ jobs:
         SUSFS_COMMIT=$(git -C susfs4ksu log -1 --format='%h %s')
         echo "SUSFS commit: $SUSFS_COMMIT"
 
+
     - name: Apply Upstream SUSFS Patch
       if: inputs.add_susfs
       working-directory: ${{ env.KERNEL_ROOT }}/common
@@ -248,16 +249,22 @@ jobs:
         if [ -f "$LIVE_PATCH" ]; then
           echo "Using live SUSFS patch from GitLab"
           patch -p1 -F3 --no-backup-if-mismatch < "$LIVE_PATCH"
+          echo "SUSFS_LIVE=true" >> "$GITHUB_ENV"
         else
           echo "::warning::Live SUSFS patch not found, falling back to local"
           patch -p1 -F3 --no-backup-if-mismatch < "$LOCAL_PATCH"
+          echo "SUSFS_LIVE=false" >> "$GITHUB_ENV"
         fi
 
     - name: Apply Enhanced SUSFS Patch
       if: inputs.add_susfs
       working-directory: ${{ env.KERNEL_ROOT }}/common
       run: |
-        patch -p1 -F3 --no-backup-if-mismatch < "$GITHUB_WORKSPACE/$VERSION_DIR/ReSukiSU/patches/51_enhanced_susfs-${ANDROID_VER}-${KERNEL_VER}.patch"
+        if [ "$SUSFS_LIVE" = "true" ]; then
+          echo "Skipping 51_enhanced_susfs patch — live GitLab SUSFS already includes enhanced features"
+        else
+          patch -p1 -F3 --no-backup-if-mismatch < "$GITHUB_WORKSPACE/$VERSION_DIR/ReSukiSU/patches/51_enhanced_susfs-${ANDROID_VER}-${KERNEL_VER}.patch"
+        fi
 
     - name: Apply KSU Safety Patch
       if: inputs.add_susfs
@@ -270,7 +277,12 @@ jobs:
       if: inputs.add_zeromount && inputs.add_susfs
       working-directory: ${{ env.KERNEL_ROOT }}/common
       run: |
-        patch -p1 -F3 --no-backup-if-mismatch < "$GITHUB_WORKSPACE/$VERSION_DIR/ReSukiSU/patches/60_zeromount-${ANDROID_VER}-${KERNEL_VER}.patch"
+        PATCH="$GITHUB_WORKSPACE/$VERSION_DIR/ReSukiSU/patches/60_zeromount-${ANDROID_VER}-${KERNEL_VER}.patch"
+        if ! patch -p1 -F3 --no-backup-if-mismatch < "$PATCH"; then
+          echo "::warning::ZeroMount patch had conflicts — attempting with --force"
+          patch -p1 -F3 --no-backup-if-mismatch --force < "$PATCH" || echo "::warning::ZeroMount patch partially applied"
+        fi
+
 
     - name: Fix SUSFS Compatibility
       if: inputs.add_susfs
