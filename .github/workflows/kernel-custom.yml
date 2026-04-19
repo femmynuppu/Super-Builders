@@ -387,12 +387,13 @@ jobs:
         env:
           ANDROID_VER: ${{ steps.parse.outputs.android_version }}
           KERNEL_VER: ${{ steps.parse.outputs.kernel_version }}
+          SUB_LEVEL: ${{ steps.parse.outputs.sub_level }}
         run: |
           CODENAME=""
           if [ -f device-profiles.json ]; then
             CODENAME=$(jq -r \
-              --arg av "$ANDROID_VER" --arg kv "$KERNEL_VER" \
-              '[.devices | to_entries[] | select(.value.android_version == $av and .value.kernel_version == $kv) | .key] | first // empty' \
+              --arg av "$ANDROID_VER" --arg kv "$KERNEL_VER" --arg sl "$SUB_LEVEL" \
+              '[.devices | to_entries[] | select(.value.android_version == $av and .value.kernel_version == $kv and .value.sub_level == $sl) | .key] | first // empty' \
               device-profiles.json)
           fi
           echo "codename=${CODENAME}" >> "$GITHUB_OUTPUT"
