@@ -196,17 +196,62 @@ jobs:
           fi
         fi
 
+    - name: Verify KPM Kconfig
+      if: inputs.add_kpm
+      working-directory: ${{ env.KERNEL_ROOT }}
+      run: |
+        echo "=== KPM Kconfig Diagnostic ==="
+        if grep -rq "config KPM" "$KSU_DIR/" 2>/dev/null; then
+          echo "✅ KPM Kconfig found in $KSU_DIR"
+          grep -rn "config KPM" "$KSU_DIR/" --include='Kconfig*'
+        else
+          echo "::warning::KPM Kconfig NOT found in $KSU_DIR — CONFIG_KPM=y may be ignored by kernel build"
+          echo "Searching entire kernel tree..."
+          grep -rn "config KPM" common/ "$KSU_DIR/" --include='Kconfig*' 2>/dev/null || echo "::error::No KPM Kconfig found anywhere"
+        fi
+
     - name: Fix Old Kernel Compatibility
       working-directory: ${{ env.KERNEL_ROOT }}/common
       run: |
         FIX_SCRIPT="$GITHUB_WORKSPACE/$VERSION_DIR/build-helpers/fix-old-kernel-compat.sh"
         [ -f "$FIX_SCRIPT" ] && bash "$FIX_SCRIPT" "$KERNEL_ROOT/common" "$SUBLEVEL" || true
 
+    - name: Clone SUSFS from GitLab
+      if: inputs.add_susfs
+      working-directory: ${{ env.KERNEL_ROOT }}
+      run: |
+        SUSFS_BRANCH="gki-${ANDROID_VER}-${KERNEL_VER}"
+        echo "Cloning SUSFS branch: $SUSFS_BRANCH"
+        git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" --depth=1
+
+        # Copy SUSFS source files into kernel tree
+        if [ -d susfs4ksu/kernel_patches/fs ]; then
+          cp susfs4ksu/kernel_patches/fs/* ./common/fs/
+          echo "Copied SUSFS fs/ files"
+        fi
+        if [ -d susfs4ksu/kernel_patches/include/linux ]; then
+          cp susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          echo "Copied SUSFS include/linux/ files"
+        fi
+
+        echo "SUSFS_DIR=$KERNEL_ROOT/susfs4ksu" >> "$GITHUB_ENV"
+        SUSFS_COMMIT=$(git -C susfs4ksu log -1 --format='%h %s')
+        echo "SUSFS commit: $SUSFS_COMMIT"
+
     - name: Apply Upstream SUSFS Patch
       if: inputs.add_susfs
       working-directory: ${{ env.KERNEL_ROOT }}/common
       run: |
-        patch -p1 -F3 --no-backup-if-mismatch < "$GITHUB_WORKSPACE/$VERSION_DIR/ReSukiSU/patches/50_add_susfs_in_gki-${ANDROID_VER}-${KERNEL_VER}.patch"
+        # Prefer live-cloned patch from GitLab, fallback to local
+        LIVE_PATCH="$SUSFS_DIR/kernel_patches/50_add_susfs_in_gki-${ANDROID_VER}-${KERNEL_VER}.patch"
+        LOCAL_PATCH="$GITHUB_WORKSPACE/$VERSION_DIR/ReSukiSU/patches/50_add_susfs_in_gki-${ANDROID_VER}-${KERNEL_VER}.patch"
+        if [ -f "$LIVE_PATCH" ]; then
+          echo "Using live SUSFS patch from GitLab"
+          patch -p1 -F3 --no-backup-if-mismatch < "$LIVE_PATCH"
+        else
+          echo "::warning::Live SUSFS patch not found, falling back to local"
+          patch -p1 -F3 --no-backup-if-mismatch < "$LOCAL_PATCH"
+        fi
 
     - name: Apply Enhanced SUSFS Patch
       if: inputs.add_susfs
