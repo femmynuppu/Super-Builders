@@ -16,13 +16,6 @@ jobs:
         with:
           path: Super-Builders
 
-      - name: Checkout SUSFS v2.1
-        uses: actions/checkout@v4
-        with:
-          repository: simonpunk/susfs4ksu
-          ref: gki-android12-5.10
-          path: susfs4ksu
-
       - name: Checkout Android Common Kernel 12-5.10
         uses: actions/checkout@v4
         with:
@@ -33,6 +26,7 @@ jobs:
 
       - name: Perform Rebase
         run: |
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android12-5.10 susfs4ksu
           cd kernel_common
           # Apply v2.1 Patch (baseline)
           patch -p1 < ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch
